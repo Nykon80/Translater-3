@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Структура проекта</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .layer-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .layer-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .layer-description {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .component {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .component-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .component-description {
+            color: #666;
+            margin: 5px 0;
+        }
+        .component-dependencies {
+            margin: 5px 0;
+        }
+        .dependency {
+            color: #666;
+            margin: 3px 0;
+        }
+        .layer {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            margin-right: 5px;
+        }
+        .layer-ui {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+        .layer-domain {
+            background-color: #f3e5f5;
+            color: #7b1fa2;
+        }
+        .layer-data {
+            background-color: #e8f5e9;
+            color: #388e3c;
+        }
+        .diagram {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .diagram img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Структура проекта</h1>
+
+        <!-- UI Layer -->
+        <div class="layer-section">
+            <div class="layer-title">
+                UI Layer
+                <span class="layer layer-ui">UI</span>
+            </div>
+            <div class="layer-description">
+                Слой пользовательского интерфейса, отвечающий за отображение данных и взаимодействие с пользователем.
+            </div>
+            
+            <div class="component">
+                <div class="component-name">MainActivity</div>
+                <div class="component-description">
+                    Основная активность приложения, содержащая главный экран с функционалом перевода.
+                </div>
+                <div class="component-dependencies">
+                    <strong>Зависимости:</strong>
+                    <div class="dependency">TranslationViewModel</div>
+                    <div class="dependency">TranslationScreen</div>
+                </div>
+            </div>
+
+            <div class="component">
+                <div class="component-name">TranslationScreen</div>
+                <div class="component-description">
+                    Composable функция, реализующая экран перевода с полями ввода и вывода.
+                </div>
+                <div class="component-dependencies">
+                    <strong>Зависимости:</strong>
+                    <div class="dependency">TranslationViewModel</div>
+                    <div class="dependency">LanguageSelector</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Domain Layer -->
+        <div class="layer-section">
+            <div class="layer-title">
+                Domain Layer
+                <span class="layer layer-domain">Domain</span>
+            </div>
+            <div class="layer-description">
+                Слой бизнес-логики, содержащий основные правила и операции приложения.
+            </div>
+            
+            <div class="component">
+                <div class="component-name">TranslationUseCase</div>
+                <div class="component-description">
+                    Use Case для выполнения перевода текста с учетом контекста и форматирования.
+                </div>
+                <div class="component-dependencies">
+                    <strong>Зависимости:</strong>
+                    <div class="dependency">TranslationRepository</div>
+                    <div class="dependency">TextFormatter</div>
+                </div>
+            </div>
+
+            <div class="component">
+                <div class="component-name">TranslationViewModel</div>
+                <div class="component-description">
+                    ViewModel для управления состоянием экрана перевода и обработки пользовательского ввода.
+                </div>
+                <div class="component-dependencies">
+                    <strong>Зависимости:</strong>
+                    <div class="dependency">TranslationUseCase</div>
+                    <div class="dependency">LanguageDetector</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Layer -->
+        <div class="layer-section">
+            <div class="layer-title">
+                Data Layer
+                <span class="layer layer-data">Data</span>
+            </div>
+            <div class="layer-description">
+                Слой данных, отвечающий за хранение и получение данных из различных источников.
+            </div>
+            
+            <div class="component">
+                <div class="component-name">TranslationRepository</div>
+                <div class="component-description">
+                    Репозиторий для работы с данными перевода, объединяющий локальное хранилище и API.
+                </div>
+                <div class="component-dependencies">
+                    <strong>Зависимости:</strong>
+                    <div class="dependency">TranslationApi</div>
+                    <div class="dependency">TranslationDao</div>
+                </div>
+            </div>
+
+            <div class="component">
+                <div class="component-name">TranslationApi</div>
+                <div class="component-description">
+                    Интерфейс для работы с API перевода, определяющий методы для получения переводов.
+                </div>
+                <div class="component-dependencies">
+                    <strong>Зависимости:</strong>
+                    <div class="dependency">Retrofit</div>
+                    <div class="dependency">OkHttp</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Архитектурная диаграмма -->
+        <div class="diagram">
+            <h3>Архитектурная диаграмма</h3>
+            <img src="architecture_diagram.png" alt="Архитектурная диаграмма приложения">
+        </div>
+    </div>
+</body>
+</html> 

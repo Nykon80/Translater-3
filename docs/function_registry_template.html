@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Реестр функций приложения</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .function-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .function-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .function-description {
+            color: #666;
+            margin: 10px 0;
+        }
+        .function-params {
+            margin: 10px 0;
+        }
+        .param {
+            margin: 5px 0;
+        }
+        .param-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .param-type {
+            color: #666;
+            font-style: italic;
+        }
+        .param-description {
+            color: #666;
+            margin-left: 20px;
+        }
+        .function-returns {
+            margin: 10px 0;
+        }
+        .function-example {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .function-dependencies {
+            margin: 10px 0;
+        }
+        .dependency {
+            color: #666;
+            margin: 5px 0;
+        }
+        .layer {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 0.9em;
+            margin-right: 5px;
+        }
+        .layer-ui {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+        .layer-domain {
+            background-color: #f3e5f5;
+            color: #7b1fa2;
+        }
+        .layer-data {
+            background-color: #e8f5e9;
+            color: #388e3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Реестр функций приложения</h1>
+        
+        <!-- Пример функции -->
+        <div class="function-section">
+            <div class="function-name">
+                translateText
+                <span class="layer layer-domain">Domain</span>
+            </div>
+            <div class="function-description">
+                Переводит текст с одного языка на другой с учетом контекста и форматирования.
+            </div>
+            <div class="function-params">
+                <div class="param">
+                    <span class="param-name">text</span>
+                    <span class="param-type">String</span>
+                    <div class="param-description">Исходный текст для перевода</div>
+                </div>
+                <div class="param">
+                    <span class="param-name">sourceLanguage</span>
+                    <span class="param-type">Language</span>
+                    <div class="param-description">Исходный язык текста</div>
+                </div>
+                <div class="param">
+                    <span class="param-name">targetLanguage</span>
+                    <span class="param-type">Language</span>
+                    <div class="param-description">Целевой язык перевода</div>
+                </div>
+            </div>
+            <div class="function-returns">
+                <strong>Возвращает:</strong> <span class="param-type">TranslationResult</span>
+                <div class="param-description">Результат перевода с форматированием и дополнительной информацией</div>
+            </div>
+            <div class="function-example">
+                <strong>Пример использования:</strong>
+                <pre>
+val result = translateText(
+    text = "Hello, world!",
+    sourceLanguage = Language.ENGLISH,
+    targetLanguage = Language.RUSSIAN
+)
+                </pre>
+            </div>
+            <div class="function-dependencies">
+                <strong>Зависимости:</strong>
+                <div class="dependency">TranslationService</div>
+                <div class="dependency">TextFormatter</div>
+            </div>
+        </div>
+
+        <!-- Здесь будут добавляться новые функции -->
+    </div>
+</body>
+</html> 
