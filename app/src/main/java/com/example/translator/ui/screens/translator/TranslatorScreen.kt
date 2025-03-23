@@ -98,6 +98,9 @@ fun TranslatorScreen(
     // Отслеживаем состояние распознавания речи
     val isListening = remember { mutableStateOf(false) }
     
+    // Контекст для доступа к системным сервисам
+    val context = LocalContext.current
+    
     // Эффект для отслеживания состояния распознавания речи
     DisposableEffect(Unit) {
         // Создаем слушатель изменения состояния распознавания речи
@@ -165,19 +168,83 @@ fun TranslatorScreen(
                 }
             }
 
-            // Поле ввода
-            OutlinedTextField(
-                value = state.inputText,
-                onValueChange = viewModel::setInputText,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                placeholder = { Text(stringResource(R.string.enter_text)) }
-            )
+            // Поле ввода с кнопками управления вводом
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                // Поле ввода
+                OutlinedTextField(
+                    value = state.inputText,
+                    onValueChange = viewModel::setInputText,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(120.dp),
+                    placeholder = { Text(stringResource(R.string.enter_text)) }
+                )
+                
+                // Вертикальные кнопки управления вводом
+                Column(
+                    modifier = Modifier.padding(start = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val micButtonScale = remember { Animatable(1f) }
+                    
+                    // Функция для обработки нажатия на кнопку микрофона
+                    val onMicrophoneClick = {
+                        if (isListening.value) {
+                            // Если микрофон уже активен, останавливаем распознавание
+                            SpeechRecognitionStopEvent.requestStopSpeechRecognition()
+                        } else {
+                            // Иначе запускаем распознавание
+                            // Вибрируем для обратной связи
+                            vibrateDevice(context)
+                            
+                            // Запрашиваем распознавание речи с кодом языка
+                            val languageCode = state.sourceLanguage?.code ?: "en"
+                            SpeechRecognitionRequestEvent.requestSpeechRecognition(languageCode)
+                        }
+                    }
+                    
+                    // Кнопка микрофона
+                    IconButton(
+                        onClick = onMicrophoneClick,
+                        modifier = Modifier.scale(micButtonScale.value)
+                    ) {
+                        if (isListening.value) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = "Микрофон"
+                            )
+                        }
+                    }
+                    
+                    // Кнопка очистки
+                    IconButton(onClick = viewModel::clearInput) {
+                        Icon(
+                            Icons.Default.Clear,
+                            contentDescription = stringResource(R.string.clear)
+                        )
+                    }
+                    
+                    // Кнопка вставки
+                    IconButton(onClick = viewModel::pasteFromClipboard) {
+                        Icon(
+                            Icons.Default.ContentPaste,
+                            contentDescription = stringResource(R.string.paste)
+                        )
+                    }
+                }
+            }
 
             // Кнопка перевода
             val coroutineScope = rememberCoroutineScope()
-            val context = LocalContext.current
             
             val buttonScale = remember { Animatable(1f) }
             
@@ -207,166 +274,113 @@ fun TranslatorScreen(
                 Text(stringResource(R.string.translate))
             }
 
-            // Кнопки управления вводом
+            // Результат перевода с кнопками управления переводом
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val micButtonScale = remember { Animatable(1f) }
-                
-                // Функция для обработки нажатия на кнопку микрофона
-                val onMicrophoneClick = {
-                    if (isListening.value) {
-                        // Если микрофон уже активен, останавливаем распознавание
-                        SpeechRecognitionStopEvent.requestStopSpeechRecognition()
-                    } else {
-                        // Иначе запускаем распознавание
-                        // Вибрируем для обратной связи
-                        try {
-                            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-                            if (vibrator != null && vibrator.hasVibrator()) {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    vibrator.vibrate(VibrationEffect.createOneShot(50, VibrationEffect.DEFAULT_AMPLITUDE))
-                                } else {
-                                    @Suppress("DEPRECATION")
-                                    vibrator.vibrate(50)
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Log.e("TranslatorScreen", "Error during vibration", e)
-                        }
-                        
-                        // Запрашиваем распознавание речи с кодом языка
-                        val languageCode = state.sourceLanguage?.code ?: "en"
-                        SpeechRecognitionRequestEvent.requestSpeechRecognition(languageCode)
-                    }
-                }
-                
-                IconButton(
-                    onClick = onMicrophoneClick,
-                    modifier = Modifier
-                        .scale(micButtonScale.value)
-                ) {
-                    if (isListening.value) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Mic,
-                            contentDescription = "Микрофон"
-                        )
-                    }
-                }
-                IconButton(onClick = viewModel::clearInput) {
-                    Icon(
-                        Icons.Default.Clear,
-                        contentDescription = stringResource(R.string.clear)
-                    )
-                }
-                IconButton(onClick = viewModel::pasteFromClipboard) {
-                    Icon(
-                        Icons.Default.ContentPaste,
-                        contentDescription = stringResource(R.string.paste)
-                    )
-                }
-            }
-
-            // Результат перевода
-            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
+                    .weight(1f),
+                verticalAlignment = Alignment.Top
             ) {
-                Column(
+                // Результат перевода
+                Card(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp)
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .imePadding() // Важно! Это предотвращает перекрытие клавиатурой
                 ) {
-                    if (state.isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                    } else {
-                        // Используем AndroidView для отображения форматированного текста
-                        if (state.translatedText.isNotEmpty()) {
-                            androidx.compose.ui.viewinterop.AndroidView(
-                                factory = { context ->
-                                    android.widget.TextView(context).apply {
-                                        textSize = 16f  // Базовый размер текста
-                                        setLineSpacing(8f, 1f)  // Увеличиваем интервал между строками
-                                        setPadding(8, 8, 8, 8)  // Добавляем отступы
-                                    }
-                                },
-                                update = { textView ->
-                                    // Получаем форматированный текст и устанавливаем его
-                                    val formattedText = viewModel.getFormattedTranslationResult()
-                                    textView.text = formattedText
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp)
+                    ) {
+                        if (state.isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
                             )
+                        } else {
+                            // Используем AndroidView для отображения форматированного текста
+                            if (state.translatedText.isNotEmpty()) {
+                                androidx.compose.ui.viewinterop.AndroidView(
+                                    factory = { context ->
+                                        android.widget.TextView(context).apply {
+                                            textSize = 16f  // Базовый размер текста
+                                            setLineSpacing(8f, 1f)  // Увеличиваем интервал между строками
+                                            setPadding(8, 8, 8, 8)  // Добавляем отступы
+                                        }
+                                    },
+                                    update = { textView ->
+                                        // Получаем форматированный текст и устанавливаем его
+                                        val formattedText = viewModel.getFormattedTranslationResult()
+                                        textView.text = formattedText
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            }
+                            
+                            // Показываем ошибку, если она есть
+                            state.error?.let { error ->
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = error,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Вертикальные кнопки управления переводом
+                Column(
+                    modifier = Modifier.padding(start = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val speakButtonScale = remember { Animatable(1f) }
+                    
+                    // Кнопка озвучивания
+                    IconButton(onClick = {
+                        // Анимация кнопки озвучивания
+                        coroutineScope.launch {
+                            animateButton(speakButtonScale)
                         }
                         
-                        // Показываем ошибку, если она есть
-                        state.error?.let { error ->
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = error,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error
+                        // Вибрация
+                        vibrateDevice(context)
+                        
+                        viewModel.speakTranslation()
+                    },
+                    modifier = Modifier.scale(speakButtonScale.value)) {
+                        if (state.isSpeaking) {
+                            // Показываем индикатор прогресса, когда идет озвучивание
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                Icons.AutoMirrored.Filled.VolumeUp,
+                                contentDescription = stringResource(R.string.speak)
                             )
                         }
                     }
-                }
-            }
-
-            // Кнопки управления переводом
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                val speakButtonScale = remember { Animatable(1f) }
-                
-                IconButton(onClick = {
-                    // Анимация кнопки озвучивания
-                    coroutineScope.launch {
-                        animateButton(speakButtonScale)
-                    }
                     
-                    // Вибрация
-                    vibrateDevice(context)
-                    
-                    viewModel.speakTranslation()
-                },
-                modifier = Modifier.scale(speakButtonScale.value)) {
-                    if (state.isSpeaking) {
-                        // Показываем индикатор прогресса, когда идет озвучивание
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
+                    // Кнопка копирования
+                    IconButton(onClick = viewModel::copyTranslation) {
                         Icon(
-                            Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = stringResource(R.string.speak)
+                            Icons.Default.ContentCopy,
+                            contentDescription = stringResource(R.string.copy)
                         )
                     }
-                }
-                IconButton(onClick = viewModel::copyTranslation) {
-                    Icon(
-                        Icons.Default.ContentCopy,
-                        contentDescription = stringResource(R.string.copy)
-                    )
-                }
-                IconButton(onClick = viewModel::shareTranslation) {
-                    Icon(
-                        Icons.Default.Share,
-                        contentDescription = stringResource(R.string.share)
-                    )
+                    
+                    // Кнопка отправки
+                    IconButton(onClick = viewModel::shareTranslation) {
+                        Icon(
+                            Icons.Default.Share,
+                            contentDescription = stringResource(R.string.share)
+                        )
+                    }
                 }
             }
         }
