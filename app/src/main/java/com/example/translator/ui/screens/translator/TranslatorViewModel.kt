@@ -104,11 +104,11 @@ class TranslatorViewModel @Inject constructor(
                         
                         // Выбираем исходный язык
                         val sourceLanguage = when {
-                            // Если есть последний использованный язык
-                            lastSourceLanguage != null -> {
+                            // Сначала проверяем, является ли последний использованный язык избранным
+                            lastSourceLanguage != null && sourceFavorites.contains(lastSourceLanguage) -> {
                                 sourceLanguages.find { it.code == lastSourceLanguage }
                             }
-                            // Если есть избранные языки для исходного, берем последний
+                            // Затем проверяем, есть ли избранные языки
                             sourceFavorites.isNotEmpty() -> {
                                 sourceLanguages.find { it.code == sourceFavorites.last() }
                             }
@@ -122,11 +122,11 @@ class TranslatorViewModel @Inject constructor(
                         
                         // Выбираем целевой язык
                         val targetLanguage = when {
-                            // Если есть последний использованный язык
-                            lastTargetLanguage != null -> {
+                            // Сначала проверяем, является ли последний использованный язык избранным
+                            lastTargetLanguage != null && targetFavorites.contains(lastTargetLanguage) -> {
                                 targetLanguages.find { it.code == lastTargetLanguage }
                             }
-                            // Если есть избранные языки для целевого, берем последний
+                            // Затем проверяем, есть ли избранные языки
                             targetFavorites.isNotEmpty() -> {
                                 targetLanguages.find { it.code == targetFavorites.last() }
                             }
