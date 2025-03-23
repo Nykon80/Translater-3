@@ -98,8 +98,16 @@ class TranslatorViewModel @Inject constructor(
                         val sourceFavorites = languagePreferences.getSourceLanguageFavorites()
                         val targetFavorites = languagePreferences.getTargetLanguageFavorites()
                         
+                        // Получаем последние использованные языки
+                        val lastSourceLanguage = languagePreferences.getLastSourceLanguage()
+                        val lastTargetLanguage = languagePreferences.getLastTargetLanguage()
+                        
                         // Выбираем исходный язык
                         val sourceLanguage = when {
+                            // Если есть последний использованный язык
+                            lastSourceLanguage != null -> {
+                                sourceLanguages.find { it.code == lastSourceLanguage }
+                            }
                             // Если есть избранные языки для исходного, берем последний
                             sourceFavorites.isNotEmpty() -> {
                                 sourceLanguages.find { it.code == sourceFavorites.last() }
@@ -114,6 +122,10 @@ class TranslatorViewModel @Inject constructor(
                         
                         // Выбираем целевой язык
                         val targetLanguage = when {
+                            // Если есть последний использованный язык
+                            lastTargetLanguage != null -> {
+                                targetLanguages.find { it.code == lastTargetLanguage }
+                            }
                             // Если есть избранные языки для целевого, берем последний
                             targetFavorites.isNotEmpty() -> {
                                 targetLanguages.find { it.code == targetFavorites.last() }
@@ -211,6 +223,12 @@ class TranslatorViewModel @Inject constructor(
      */
     fun setSourceLanguage(language: Language) {
         _state.update { it.copy(sourceLanguage = language) }
+        
+        // Сохраняем последний выбранный исходный язык
+        viewModelScope.launch {
+            languagePreferences.setLastSourceLanguage(language.code)
+        }
+        
         // Не запускаем перевод при изменении исходного языка
     }
     
@@ -219,6 +237,11 @@ class TranslatorViewModel @Inject constructor(
      */
     fun setTargetLanguage(language: Language) {
         _state.update { it.copy(targetLanguage = language) }
+        
+        // Сохраняем последний выбранный целевой язык
+        viewModelScope.launch {
+            languagePreferences.setLastTargetLanguage(language.code)
+        }
         
         // Устанавливаем флаг, что изменился целевой язык
         targetLanguageChanged = true
@@ -239,12 +262,26 @@ class TranslatorViewModel @Inject constructor(
     }
 
     fun swapLanguages() {
+        val currentSourceLanguage = state.value.sourceLanguage
+        val currentTargetLanguage = state.value.targetLanguage
+        
         _state.update {
             it.copy(
                 sourceLanguage = it.targetLanguage,
                 targetLanguage = it.sourceLanguage
             )
         }
+        
+        // Сохраняем новые значения последних языков
+        viewModelScope.launch {
+            currentTargetLanguage?.let { language ->
+                languagePreferences.setLastSourceLanguage(language.code)
+            }
+            currentSourceLanguage?.let { language ->
+                languagePreferences.setLastTargetLanguage(language.code)
+            }
+        }
+        
         if (state.value.inputText.isNotEmpty()) {
             translate()
         }
