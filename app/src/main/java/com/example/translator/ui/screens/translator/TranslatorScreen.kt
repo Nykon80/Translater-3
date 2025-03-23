@@ -94,12 +94,11 @@ fun TranslatorScreen(
     viewModel: TranslatorViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     
     // Отслеживаем состояние распознавания речи
     val isListening = remember { mutableStateOf(false) }
-    
-    // Контекст для доступа к системным сервисам
-    val context = LocalContext.current
     
     // Эффект для отслеживания состояния распознавания речи
     DisposableEffect(Unit) {
@@ -168,12 +167,13 @@ fun TranslatorScreen(
                 }
             }
 
-            // Поле ввода с кнопками управления вводом
+            // Поле ввода и кнопки управления вводом (по вертикали справа)
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                // Поле ввода
+                // Поле ввода занимает большую часть пространства
                 OutlinedTextField(
                     value = state.inputText,
                     onValueChange = viewModel::setInputText,
@@ -183,13 +183,11 @@ fun TranslatorScreen(
                     placeholder = { Text(stringResource(R.string.enter_text)) }
                 )
                 
-                // Вертикальные кнопки управления вводом
+                // Кнопки управления вводом по вертикали
                 Column(
-                    modifier = Modifier.padding(start = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    val micButtonScale = remember { Animatable(1f) }
-                    
                     // Функция для обработки нажатия на кнопку микрофона
                     val onMicrophoneClick = {
                         if (isListening.value) {
@@ -206,10 +204,9 @@ fun TranslatorScreen(
                         }
                     }
                     
-                    // Кнопка микрофона
                     IconButton(
                         onClick = onMicrophoneClick,
-                        modifier = Modifier.scale(micButtonScale.value)
+                        modifier = Modifier
                     ) {
                         if (isListening.value) {
                             CircularProgressIndicator(
@@ -233,7 +230,7 @@ fun TranslatorScreen(
                         )
                     }
                     
-                    // Кнопка вставки
+                    // Кнопка вставки из буфера
                     IconButton(onClick = viewModel::pasteFromClipboard) {
                         Icon(
                             Icons.Default.ContentPaste,
@@ -244,8 +241,6 @@ fun TranslatorScreen(
             }
 
             // Кнопка перевода
-            val coroutineScope = rememberCoroutineScope()
-            
             val buttonScale = remember { Animatable(1f) }
             
             Button(
@@ -274,19 +269,18 @@ fun TranslatorScreen(
                 Text(stringResource(R.string.translate))
             }
 
-            // Результат перевода с кнопками управления переводом
+            // Результат перевода и кнопки управления переводом
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                verticalAlignment = Alignment.Top
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Результат перевода
+                // Карточка результата перевода
                 Card(
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxHeight()
-                        .imePadding() // Важно! Это предотвращает перекрытие клавиатурой
+                        .imePadding() // Важно! Предотвращает перекрытие клавиатурой
                 ) {
                     Column(
                         modifier = Modifier
@@ -332,10 +326,11 @@ fun TranslatorScreen(
                     }
                 }
                 
-                // Вертикальные кнопки управления переводом
+                // Вертикальный ряд кнопок управления результатом перевода
                 Column(
-                    modifier = Modifier.padding(start = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(top = 16.dp) // Выравниваем с первой строкой текста
                 ) {
                     val speakButtonScale = remember { Animatable(1f) }
                     
