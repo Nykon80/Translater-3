@@ -10,25 +10,35 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.translator.R
 import com.example.translator.domain.model.Language
 import com.example.translator.ui.components.LanguageSelector
+import com.example.translator.ui.SpeechRecognitionEvent
+import com.example.translator.ui.SpeechRecognitionStopEvent
+import com.example.translator.ui.SpeechRecognitionRequestEvent
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.ui.graphics.Color
-import com.example.translator.ui.SpeechRecognitionEvent
-import com.example.translator.ui.SpeechRecognitionStopEvent
-import com.example.translator.ui.SpeechRecognitionRequestEvent
-import android.util.Log
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import android.view.Menu
+import android.view.MenuItem
+import android.view.ActionMode
 
 /**
  * Вызывает тактильную вибрацию устройства с безопасной обработкой ошибок
@@ -94,11 +104,18 @@ fun TranslatorScreen(
     viewModel: TranslatorViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
     
     // Отслеживаем состояние распознавания речи
     val isListening = remember { mutableStateOf(false) }
+    
+    // Отслеживаем фокус ввода для обработки клавиатуры
+    val isInputFocused = remember { mutableStateOf(false) }
+    
+    // Состояние прокрутки для основного контента
+    val scrollState = rememberScrollState()
+    
+    // Отслеживаем состояние клавиатуры
+    val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     
     // Эффект для отслеживания состояния распознавания речи
     DisposableEffect(Unit) {
@@ -115,268 +132,365 @@ fun TranslatorScreen(
             SpeechRecognitionEvent.removeListeningStateListener(listeningStateListener)
         }
     }
+    
+    // Корутина для анимации и вибрации
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.app_name)) },
-                actions = {
-                    IconButton(onClick = onNavigateToHistory) {
-                        Icon(Icons.Default.History, contentDescription = stringResource(R.string.history))
+    // Используем BoxWithConstraints для определения доступного пространства
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val screenHeight = maxHeight
+        
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(R.string.app_name)) }
+                )
+            },
+            // Отключаем автоматическую обработку инсетов
+            contentWindowInsets = WindowInsets(0)
+        ) { paddingValues ->
+            // Основной контейнер с прокруткой и обработкой инсетов клавиатуры
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp)
+                    .imePadding(), // Важно! Добавляем отступ под клавиатуру
+                    // Убираем .verticalScroll(scrollState), чтобы не конфликтовал с внутренним ScrollView
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Языки перевода
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    state.sourceLanguage?.let { sourceLang ->
+                        LanguageSelector(
+                            selectedLanguage = sourceLang,
+                            languages = state.sourceLanguages,
+                            onLanguageSelected = viewModel::setSourceLanguage,
+                            onFavoriteToggled = viewModel::toggleSourceLanguageFavorite,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    IconButton(onClick = viewModel::swapLanguages) {
+                        Icon(
+                            Icons.Default.SwapHoriz,
+                            contentDescription = stringResource(R.string.swap_languages)
+                        )
+                    }
+                    state.targetLanguage?.let { targetLang ->
+                        LanguageSelector(
+                            selectedLanguage = targetLang,
+                            languages = state.targetLanguages,
+                            onLanguageSelected = viewModel::setTargetLanguage,
+                            onFavoriteToggled = viewModel::toggleTargetLanguageFavorite,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Языки перевода
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                state.sourceLanguage?.let { sourceLang ->
-                    LanguageSelector(
-                        selectedLanguage = sourceLang,
-                        languages = state.sourceLanguages,
-                        onLanguageSelected = viewModel::setSourceLanguage,
-                        onFavoriteToggled = viewModel::toggleSourceLanguageFavorite,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                IconButton(onClick = viewModel::swapLanguages) {
-                    Icon(
-                        Icons.Default.SwapHoriz,
-                        contentDescription = stringResource(R.string.swap_languages)
-                    )
-                }
-                state.targetLanguage?.let { targetLang ->
-                    LanguageSelector(
-                        selectedLanguage = targetLang,
-                        languages = state.targetLanguages,
-                        onLanguageSelected = viewModel::setTargetLanguage,
-                        onFavoriteToggled = viewModel::toggleTargetLanguageFavorite,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
 
-            // Поле ввода и кнопки управления вводом (по вертикали справа)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                // Поле ввода занимает большую часть пространства
-                OutlinedTextField(
-                    value = state.inputText,
-                    onValueChange = viewModel::setInputText,
+                // Поле ввода с кнопками внутри - динамический размер
+                Box(
                     modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp)
                         .weight(1f)
-                        .height(120.dp),
-                    placeholder = { Text(stringResource(R.string.enter_text)) }
-                )
-                
-                // Кнопки управления вводом по вертикали
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Функция для обработки нажатия на кнопку микрофона
-                    val onMicrophoneClick = {
-                        if (isListening.value) {
-                            // Если микрофон уже активен, останавливаем распознавание
-                            SpeechRecognitionStopEvent.requestStopSpeechRecognition()
-                        } else {
-                            // Иначе запускаем распознавание
-                            // Вибрируем для обратной связи
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            // Поле ввода со скроллингом
+                            OutlinedTextField(
+                                value = state.inputText,
+                                onValueChange = viewModel::setInputText,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .onFocusChanged { focusState ->
+                                        isInputFocused.value = focusState.isFocused
+                                    },
+                                placeholder = { Text(stringResource(R.string.enter_text)) },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color.Transparent,
+                                    unfocusedBorderColor = Color.Transparent
+                                )
+                            )
+                            
+                            // Кнопки управления вводом вертикально справа
+                            Column(
+                                modifier = Modifier.padding(end = 4.dp, top = 4.dp),
+                                verticalArrangement = Arrangement.Top,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                val micButtonScale = remember { Animatable(1f) }
+                                
+                                // Функция для обработки нажатия на кнопку микрофона
+                                val onMicrophoneClick = {
+                                    if (isListening.value) {
+                                        // Если микрофон уже активен, останавливаем распознавание
+                                        SpeechRecognitionStopEvent.requestStopSpeechRecognition()
+                                    } else {
+                                        // Иначе запускаем распознавание
+                                        // Вибрируем для обратной связи
+                                        vibrateDevice(context)
+                                        
+                                        // Запрашиваем распознавание речи с кодом языка
+                                        val languageCode = state.sourceLanguage?.code ?: "en"
+                                        SpeechRecognitionRequestEvent.requestSpeechRecognition(languageCode)
+                                    }
+                                }
+                                
+                                IconButton(
+                                    onClick = onMicrophoneClick,
+                                    modifier = Modifier.scale(micButtonScale.value)
+                                ) {
+                                    if (isListening.value) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Mic,
+                                            contentDescription = "Микрофон"
+                                        )
+                                    }
+                                }
+                                
+                                IconButton(onClick = viewModel::clearInput) {
+                                    Icon(
+                                        Icons.Default.Clear,
+                                        contentDescription = stringResource(R.string.clear)
+                                    )
+                                }
+                                
+                                IconButton(onClick = viewModel::pasteFromClipboard) {
+                                    Icon(
+                                        Icons.Default.ContentPaste,
+                                        contentDescription = stringResource(R.string.paste)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Кнопка перевода
+                val buttonScale = remember { Animatable(1f) }
+                
+                Button(
+                    onClick = { 
+                        if (state.inputText.isNotEmpty() && state.sourceLanguage != null && state.targetLanguage != null) {
+                            // Анимация кнопки
+                            coroutineScope.launch {
+                                animateButton(buttonScale)
+                            }
+                            
+                            // Вибрация
                             vibrateDevice(context)
                             
-                            // Запрашиваем распознавание речи с кодом языка
-                            val languageCode = state.sourceLanguage?.code ?: "en"
-                            SpeechRecognitionRequestEvent.requestSpeechRecognition(languageCode)
+                            // Безопасный вызов функции перевода
+                            try {
+                                viewModel.translate()
+                            } catch (e: Exception) {
+                                android.util.Log.e("TranslatorScreen", "Error translating text", e)
+                            }
                         }
-                    }
-                    
-                    IconButton(
-                        onClick = onMicrophoneClick,
-                        modifier = Modifier
-                    ) {
-                        if (isListening.value) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = "Микрофон"
-                            )
-                        }
-                    }
-                    
-                    // Кнопка очистки
-                    IconButton(onClick = viewModel::clearInput) {
-                        Icon(
-                            Icons.Default.Clear,
-                            contentDescription = stringResource(R.string.clear)
-                        )
-                    }
-                    
-                    // Кнопка вставки из буфера
-                    IconButton(onClick = viewModel::pasteFromClipboard) {
-                        Icon(
-                            Icons.Default.ContentPaste,
-                            contentDescription = stringResource(R.string.paste)
-                        )
-                    }
-                }
-            }
-
-            // Кнопка перевода
-            val buttonScale = remember { Animatable(1f) }
-            
-            Button(
-                onClick = { 
-                    if (state.inputText.isNotEmpty() && state.sourceLanguage != null && state.targetLanguage != null) {
-                        // Анимация кнопки
-                        coroutineScope.launch {
-                            animateButton(buttonScale)
-                        }
-                        
-                        // Вибрация
-                        vibrateDevice(context)
-                        
-                        // Безопасный вызов функции перевода
-                        try {
-                            viewModel.translate()
-                        } catch (e: Exception) {
-                            android.util.Log.e("TranslatorScreen", "Error translating text", e)
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .scale(buttonScale.value)
-            ) {
-                Text(stringResource(R.string.translate))
-            }
-
-            // Результат перевода и кнопки управления переводом
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Карточка результата перевода
-                Card(
+                    },
                     modifier = Modifier
-                        .weight(1f)
-                        .imePadding() // Важно! Предотвращает перекрытие клавиатурой
+                        .fillMaxWidth()
+                        .scale(buttonScale.value),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp)
+                    Text(stringResource(R.string.translate))
+                }
+
+                // Результат перевода с кнопками внутри - динамический размер
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp)
+                        .weight(1f)
+                ) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        tonalElevation = 1.dp
                     ) {
-                        if (state.isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-                        } else {
-                            // Используем AndroidView для отображения форматированного текста
-                            if (state.translatedText.isNotEmpty()) {
-                                androidx.compose.ui.viewinterop.AndroidView(
-                                    factory = { context ->
-                                        android.widget.TextView(context).apply {
-                                            textSize = 16f  // Базовый размер текста
-                                            setLineSpacing(8f, 1f)  // Увеличиваем интервал между строками
-                                            setPadding(8, 8, 8, 8)  // Добавляем отступы
-                                        }
-                                    },
-                                    update = { textView ->
-                                        // Получаем форматированный текст и устанавливаем его
-                                        val formattedText = viewModel.getFormattedTranslationResult()
-                                        textView.text = formattedText
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp)
-                                )
+                        Row(
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            // Контент результата перевода с прокруткой
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .padding(8.dp)
+                            ) {
+                                if (state.isLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.align(Alignment.Center)
+                                    )
+                                } else {
+                                    // Используем AndroidView для TextView с возможностью выделения текста
+                                    if (state.translatedText.isNotEmpty()) {
+                                        androidx.compose.ui.viewinterop.AndroidView(
+                                            factory = { context ->
+                                                // Создаём базовый ScrollView с надежной конфигурацией
+                                                val scrollView = android.widget.ScrollView(context).apply {
+                                                    layoutParams = android.view.ViewGroup.LayoutParams(
+                                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                                    )
+                                                    
+                                                    // Основные настройки для корректной прокрутки
+                                                    this.isFillViewport = true
+                                                    this.isVerticalScrollBarEnabled = true
+                                                    this.isSmoothScrollingEnabled = true
+                                                    
+                                                    // Упрощаем настройки и фокусируемся на основном функционале
+                                                    this.descendantFocusability = android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
+                                                    this.isClickable = true
+                                                    this.isFocusable = true
+                                                }
+                                                
+                                                // Создаем LinearLayout как контейнер для TextView
+                                                val linearLayout = android.widget.LinearLayout(context).apply {
+                                                    layoutParams = android.view.ViewGroup.LayoutParams(
+                                                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                                                    )
+                                                    orientation = android.widget.LinearLayout.VERTICAL
+                                                    setPadding(16, 16, 16, 16)
+                                                }
+                                                
+                                                // Создаем TextView для отображения текста
+                                                val textView = android.widget.TextView(context).apply {
+                                                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                                                        android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                                                        android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
+                                                    )
+                                                    
+                                                    textSize = 16f
+                                                    setLineSpacing(8f, 1f)
+                                                    setTextIsSelectable(true)
+                                                    
+                                                    // Меньше кастомных настроек, больше стандартного поведения
+                                                    isLongClickable = true
+                                                }
+                                                
+                                                // Собираем компоненты вместе
+                                                linearLayout.addView(textView)
+                                                scrollView.addView(linearLayout)
+                                                
+                                                // Сохраняем ссылку на TextView в теге для доступа в update
+                                                scrollView.tag = textView
+                                                
+                                                // Возвращаем корневой вид
+                                                scrollView
+                                            },
+                                            update = { scrollView ->
+                                                // Получаем TextView из тега
+                                                val textView = scrollView.tag as android.widget.TextView
+                                                
+                                                // Обновляем текст
+                                                textView.text = viewModel.getFormattedTranslationResult()
+                                            },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .fillMaxHeight()
+                                        )
+                                    }
+                                    
+                                    // Показываем ошибку, если она есть
+                                    state.error?.let { error ->
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = error,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                }
                             }
                             
-                            // Показываем ошибку, если она есть
-                            state.error?.let { error ->
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = error,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.error
-                                )
+                            // Кнопки управления переводом вертикально справа в отдельном контейнере
+                            Column(
+                                modifier = Modifier
+                                    .padding(end = 4.dp, top = 4.dp)
+                                    .width(48.dp),  // Фиксированная ширина для кнопок
+                                verticalArrangement = Arrangement.Top,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                val speakButtonScale = remember { Animatable(1f) }
+                                
+                                IconButton(onClick = {
+                                    // Анимация кнопки озвучивания
+                                    coroutineScope.launch {
+                                        animateButton(speakButtonScale)
+                                    }
+                                    
+                                    // Вибрация
+                                    vibrateDevice(context)
+                                    
+                                    viewModel.speakTranslation()
+                                },
+                                modifier = Modifier.scale(speakButtonScale.value)) {
+                                    if (state.isSpeaking) {
+                                        // Показываем индикатор прогресса, когда идет озвучивание
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.VolumeUp,
+                                            contentDescription = stringResource(R.string.speak)
+                                        )
+                                    }
+                                }
+                                
+                                IconButton(onClick = viewModel::copyTranslation) {
+                                    Icon(
+                                        Icons.Default.ContentCopy,
+                                        contentDescription = stringResource(R.string.copy)
+                                    )
+                                }
+                                
+                                IconButton(onClick = viewModel::shareTranslation) {
+                                    Icon(
+                                        Icons.Default.Share,
+                                        contentDescription = stringResource(R.string.share)
+                                    )
+                                }
+                                
+                                // Кнопка истории перемещена под кнопку "поделиться"
+                                IconButton(onClick = onNavigateToHistory) {
+                                    Icon(
+                                        Icons.Default.History, 
+                                        contentDescription = stringResource(R.string.history)
+                                    )
+                                }
                             }
                         }
                     }
                 }
                 
-                // Вертикальный ряд кнопок управления результатом перевода
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(top = 16.dp) // Выравниваем с первой строкой текста
-                ) {
-                    val speakButtonScale = remember { Animatable(1f) }
-                    
-                    // Кнопка озвучивания
-                    IconButton(onClick = {
-                        // Анимация кнопки озвучивания
-                        coroutineScope.launch {
-                            animateButton(speakButtonScale)
-                        }
-                        
-                        // Вибрация
-                        vibrateDevice(context)
-                        
-                        viewModel.speakTranslation()
-                    },
-                    modifier = Modifier.scale(speakButtonScale.value)) {
-                        if (state.isSpeaking) {
-                            // Показываем индикатор прогресса, когда идет озвучивание
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                Icons.AutoMirrored.Filled.VolumeUp,
-                                contentDescription = stringResource(R.string.speak)
-                            )
-                        }
-                    }
-                    
-                    // Кнопка копирования
-                    IconButton(onClick = viewModel::copyTranslation) {
-                        Icon(
-                            Icons.Default.ContentCopy,
-                            contentDescription = stringResource(R.string.copy)
-                        )
-                    }
-                    
-                    // Кнопка отправки
-                    IconButton(onClick = viewModel::shareTranslation) {
-                        Icon(
-                            Icons.Default.Share,
-                            contentDescription = stringResource(R.string.share)
-                        )
-                    }
-                }
+                // Добавляем небольшой отступ снизу для лучшего UX
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
