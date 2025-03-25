@@ -26,6 +26,8 @@ import com.example.translator.ui.SpeechRecognitionEvent
 import com.example.translator.ui.SpeechRecognitionRequestEvent
 import com.example.translator.data.local.LanguagePreferences
 import java.util.Locale
+import android.content.ClipData
+import android.app.Application
 
 /**
  * ViewModel для экрана перевода
@@ -364,13 +366,30 @@ class TranslatorViewModel @Inject constructor(
      * Озвучивает перевод.
      * При озвучивании игнорирует текст в скобках (контекст).
      * Добавляет паузу между произношением вариантов слов.
+     * При повторном нажатии останавливает озвучивание.
      */
     fun speakTranslation() {
         val currentState = state.value
-        val textToSpeech = this.textToSpeech
+        val tts = this.textToSpeech
         
-        if (currentState.translatedText.isEmpty() || textToSpeech == null || !ttsInitialized) {
+        if (tts == null || !ttsInitialized) {
             _state.update { it.copy(error = "Синтезатор речи не инициализирован") }
+            return
+        }
+        
+        // Проверяем, идет ли уже озвучивание - если да, то останавливаем
+        if (currentState.isSpeaking) {
+            try {
+                tts.stop()
+                _state.update { it.copy(isSpeaking = false) }
+                return
+            } catch (e: Exception) {
+                android.util.Log.e("TTS", "Ошибка при остановке озвучивания", e)
+                // Продолжаем выполнение для перезапуска озвучивания
+            }
+        }
+        
+        if (currentState.translatedText.isEmpty()) {
             return
         }
         
@@ -383,33 +402,33 @@ class TranslatorViewModel @Inject constructor(
                     val locale = getLocaleForLanguageCode(currentState.targetLanguage.code)
                     
                     try {
-                        val result = textToSpeech.setLanguage(locale)
+                        val result = tts.setLanguage(locale)
                         
                         when (result) {
                             TextToSpeech.LANG_MISSING_DATA -> {
                                 android.util.Log.w("TTS", "Данные для языка ${locale.language} отсутствуют")
-                                // Пробуем установить языковой пакет в будущих версиях
-                                // installLanguagePack(locale)
+                                _state.update { it.copy(isSpeaking = false, error = "Языковые данные для озвучивания отсутствуют") }
                                 return@launch
                             }
                             TextToSpeech.LANG_NOT_SUPPORTED -> {
                                 android.util.Log.w("TTS", "Язык ${locale.language} не поддерживается")
-                                // showTtsEngineInstallDialog(locale)
+                                _state.update { it.copy(isSpeaking = false, error = "Язык не поддерживается для озвучивания") }
                                 return@launch
                             }
                             else -> {
                                 // Замедляем скорость речи для лучшего понимания
-                                textToSpeech.setSpeechRate(0.9f)
+                                tts.setSpeechRate(0.9f)
                             }
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("TTS", "Ошибка установки языка", e)
+                        _state.update { it.copy(isSpeaking = false, error = "Ошибка установки языка: ${e.message}") }
                         return@launch
                     }
                 }
                 
                 // Настраиваем слушатель прогресса озвучивания
-                textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(utteranceId: String?) {
                         android.util.Log.d("TTS", "Началось озвучивание utteranceId=$utteranceId")
                     }
@@ -439,7 +458,7 @@ class TranslatorViewModel @Inject constructor(
                     // Многовариантный перевод (слово)
                     
                     // Очищаем очередь произношения
-                    textToSpeech.speak("", TextToSpeech.QUEUE_FLUSH, null, null)
+                    tts.speak("", TextToSpeech.QUEUE_FLUSH, null, null)
                     
                     // Разбиваем на строки и обрабатываем каждый вариант перевода
                     text.split("\n").forEachIndexed { index, line ->
@@ -452,7 +471,7 @@ class TranslatorViewModel @Inject constructor(
                             val utterId = if (isLastWord) "word_last" else "word_$index"
                             
                             // Озвучиваем слово, добавляя в очередь
-                            textToSpeech.speak(
+                            tts.speak(
                                 word,
                                 TextToSpeech.QUEUE_ADD,
                                 null,
@@ -461,7 +480,7 @@ class TranslatorViewModel @Inject constructor(
                             
                             // Добавляем паузу после каждого слова, кроме последнего
                             if (!isLastWord) {
-                                textToSpeech.playSilentUtterance(
+                                tts.playSilentUtterance(
                                     800, // 800 мс паузы
                                     TextToSpeech.QUEUE_ADD,
                                     "pause_$index"
@@ -471,7 +490,7 @@ class TranslatorViewModel @Inject constructor(
                     }
                 } else {
                     // Обычный перевод (предложение) - озвучиваем как есть
-                    textToSpeech.speak(
+                    tts.speak(
                         text,
                         TextToSpeech.QUEUE_FLUSH,
                         null,
@@ -486,7 +505,27 @@ class TranslatorViewModel @Inject constructor(
     }
 
     fun copyTranslation() {
-        // Реализация копирования перевода
+        val currentState = state.value
+        if (currentState.translatedText.isNotEmpty()) {
+            try {
+                // Получаем ClipboardManager из контекста, внедренного через Hilt
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                
+                // Создаем ClipData с текстом перевода, очищая форматирование
+                val plainText = android.text.SpannableString(currentState.translatedText).toString()
+                val clip = ClipData.newPlainText("Перевод", plainText)
+                
+                // Устанавливаем данные в буфер обмена
+                clipboard.setPrimaryClip(clip)
+                
+                // Показываем сообщение об успешном копировании
+                _state.update { it.copy(translatedText = it.translatedText + "\n\n[Текст скопирован]") }
+            } catch (e: Exception) {
+                // Обрабатываем возможные ошибки
+                _state.update { it.copy(error = "Ошибка при копировании: ${e.message}") }
+                android.util.Log.e("TranslatorViewModel", "Error copying translation", e)
+            }
+        }
     }
 
     /**
@@ -539,7 +578,16 @@ class TranslatorViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                // Показываем индикатор загрузки и очищаем ошибки
                 _state.update { it.copy(isLoading = true, error = null) }
+                
+                // Если текст большой, добавляем сообщение об этом
+                if (currentState.inputText.length > 1000) {
+                    _state.update { it.copy(
+                        translatedText = "Перевод большого текста... Это может занять некоторое время.",
+                        isLoading = true
+                    )}
+                }
                 
                 val result = translateTextUseCase(
                     text = currentState.inputText,

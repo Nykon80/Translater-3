@@ -143,8 +143,28 @@ fun TranslatorScreen(
         
         Scaffold(
             topBar = {
-                TopAppBar(
-                    title = { Text(stringResource(R.string.app_name)) }
+                CenterAlignedTopAppBar(
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Translate,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                stringResource(R.string.app_name),
+                                style = MaterialTheme.typography.titleLarge
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                    )
                 )
             },
             // Отключаем автоматическую обработку инсетов
@@ -155,12 +175,11 @@ fun TranslatorScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp) // Уменьшенный вертикальный отступ
                     .imePadding(), // Важно! Добавляем отступ под клавиатуру
-                    // Убираем .verticalScroll(scrollState), чтобы не конфликтовал с внутренним ScrollView
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp) // Уменьшенные промежутки
             ) {
-                // Языки перевода
+                // Языки перевода - немного выше по сравнению с предыдущей версией
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -175,10 +194,20 @@ fun TranslatorScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    IconButton(onClick = viewModel::swapLanguages) {
+                    IconButton(
+                        onClick = viewModel::swapLanguages,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .padding(4.dp),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    ) {
                         Icon(
-                            Icons.Default.SwapHoriz,
-                            contentDescription = stringResource(R.string.swap_languages)
+                            Icons.Filled.SwapHoriz,
+                            contentDescription = stringResource(R.string.swap_languages),
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                     state.targetLanguage?.let { targetLang ->
@@ -192,7 +221,7 @@ fun TranslatorScreen(
                     }
                 }
 
-                // Поле ввода с кнопками внутри - динамический размер
+                // Поле ввода с кнопками внутри - "парящее" с тенями
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -201,123 +230,172 @@ fun TranslatorScreen(
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 2.dp
+                        shape = MaterialTheme.shapes.large, // Более выраженное скругление
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+                        tonalElevation = 8.dp, // Увеличенное значение elevation
+                        shadowElevation = 4.dp // Добавляем тень
                     ) {
                         Row(
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            // Поле ввода со скроллингом
-                            OutlinedTextField(
-                                value = state.inputText,
-                                onValueChange = viewModel::setInputText,
+                            // Контент поля ввода с прокруткой
+                            Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
-                                    .onFocusChanged { focusState ->
-                                        isInputFocused.value = focusState.isFocused
+                                    .padding(16.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = state.inputText,
+                                    onValueChange = viewModel::setInputText,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .fillMaxHeight()
+                                        .onFocusChanged { focusState ->
+                                            isInputFocused.value = focusState.isFocused
+                                        },
+                                    placeholder = {
+                                        Text(
+                                            stringResource(R.string.enter_text),
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
                                     },
-                                placeholder = { Text(stringResource(R.string.enter_text)) },
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color.Transparent,
-                                    unfocusedBorderColor = Color.Transparent
+                                    textStyle = MaterialTheme.typography.bodyLarge,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedBorderColor = Color.Transparent,
+                                        focusedBorderColor = Color.Transparent
+                                    )
                                 )
-                            )
+                            }
                             
                             // Кнопки управления вводом вертикально справа
                             Column(
-                                modifier = Modifier.padding(end = 4.dp, top = 4.dp),
+                                modifier = Modifier.padding(end = 8.dp, top = 8.dp),
                                 verticalArrangement = Arrangement.Top,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 val micButtonScale = remember { Animatable(1f) }
                                 
-                                // Функция для обработки нажатия на кнопку микрофона
-                                val onMicrophoneClick = {
+                                IconButton(onClick = {
+                                    // Анимация кнопки микрофона
+                                    coroutineScope.launch {
+                                        animateButton(micButtonScale)
+                                    }
+                                    
+                                    // Вибрация
+                                    vibrateDevice(context)
+                                    
+                                    // Запускаем или останавливаем распознавание речи
                                     if (isListening.value) {
                                         // Если микрофон уже активен, останавливаем распознавание
                                         SpeechRecognitionStopEvent.requestStopSpeechRecognition()
                                     } else {
                                         // Иначе запускаем распознавание
-                                        // Вибрируем для обратной связи
-                                        vibrateDevice(context)
-                                        
                                         // Запрашиваем распознавание речи с кодом языка
                                         val languageCode = state.sourceLanguage?.code ?: "en"
                                         SpeechRecognitionRequestEvent.requestSpeechRecognition(languageCode)
                                     }
-                                }
-                                
-                                IconButton(
-                                    onClick = onMicrophoneClick,
-                                    modifier = Modifier.scale(micButtonScale.value)
-                                ) {
+                                },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .scale(micButtonScale.value),
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    containerColor = if (isListening.value) 
+                                        MaterialTheme.colorScheme.primaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.surfaceVariant,
+                                    contentColor = if (isListening.value) 
+                                        MaterialTheme.colorScheme.onPrimaryContainer 
+                                    else 
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )) {
                                     if (isListening.value) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(24.dp),
-                                            color = MaterialTheme.colorScheme.primary,
-                                            strokeWidth = 2.dp
+                                        Icon(
+                                            Icons.Filled.Stop,
+                                            contentDescription = stringResource(R.string.listening),
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     } else {
                                         Icon(
-                                            imageVector = Icons.Default.Mic,
-                                            contentDescription = "Микрофон"
+                                            Icons.Filled.Mic,
+                                            contentDescription = stringResource(R.string.speak),
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     }
                                 }
                                 
-                                IconButton(onClick = viewModel::clearInput) {
+                                IconButton(
+                                    onClick = viewModel::clearInput,
+                                    modifier = Modifier.size(48.dp),
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                ) {
                                     Icon(
-                                        Icons.Default.Clear,
-                                        contentDescription = stringResource(R.string.clear)
+                                        Icons.Filled.Clear,
+                                        contentDescription = stringResource(R.string.clear),
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                                 
-                                IconButton(onClick = viewModel::pasteFromClipboard) {
+                                IconButton(
+                                    onClick = viewModel::pasteFromClipboard,
+                                    modifier = Modifier.size(48.dp),
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                ) {
                                     Icon(
-                                        Icons.Default.ContentPaste,
-                                        contentDescription = stringResource(R.string.paste)
+                                        Icons.Filled.ContentPaste,
+                                        contentDescription = stringResource(R.string.paste),
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
                         }
                     }
                 }
-
-                // Кнопка перевода
-                val buttonScale = remember { Animatable(1f) }
                 
+                // Кнопка перевода - более современная и заметная
                 Button(
-                    onClick = { 
-                        if (state.inputText.isNotEmpty() && state.sourceLanguage != null && state.targetLanguage != null) {
-                            // Анимация кнопки
-                            coroutineScope.launch {
-                                animateButton(buttonScale)
-                            }
-                            
-                            // Вибрация
-                            vibrateDevice(context)
-                            
-                            // Безопасный вызов функции перевода
-                            try {
-                                viewModel.translate()
-                            } catch (e: Exception) {
-                                android.util.Log.e("TranslatorScreen", "Error translating text", e)
-                            }
+                    onClick = {
+                        // Анимация кнопки и вибрация
+                        coroutineScope.launch {
+                            val buttonScale = Animatable(1f)
+                            animateButton(buttonScale)
+                        }
+                        
+                        vibrateDevice(context)
+                        
+                        // Безопасный вызов функции перевода
+                        try {
+                            viewModel.translate()
+                        } catch (e: Exception) {
+                            android.util.Log.e("TranslatorScreen", "Error translating text", e)
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .scale(buttonScale.value),
+                        .height(56.dp), // Увеличенная высота кнопки
+                    shape = MaterialTheme.shapes.medium, // Более выраженное скругление
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 4.dp,
+                        pressedElevation = 8.dp
                     )
                 ) {
-                    Text(stringResource(R.string.translate))
+                    Text(
+                        stringResource(R.string.translate),
+                        style = MaterialTheme.typography.titleMedium // Увеличенный шрифт кнопки
+                    )
                 }
 
-                // Результат перевода с кнопками внутри - динамический размер
+                // Результат перевода с кнопками внутри - "парящий" с тенями
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -326,9 +404,10 @@ fun TranslatorScreen(
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
-                        shape = MaterialTheme.shapes.medium,
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                        tonalElevation = 1.dp
+                        shape = MaterialTheme.shapes.large, // Более выраженное скругление
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.9f),
+                        tonalElevation = 8.dp, // Увеличенное значение elevation
+                        shadowElevation = 4.dp // Добавляем тень
                     ) {
                         Row(
                             modifier = Modifier.fillMaxSize()
@@ -338,11 +417,13 @@ fun TranslatorScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
-                                    .padding(8.dp)
+                                    .padding(16.dp)
                             ) {
                                 if (state.isLoading) {
                                     CircularProgressIndicator(
-                                        modifier = Modifier.align(Alignment.Center)
+                                        modifier = Modifier.align(Alignment.Center),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        strokeWidth = 4.dp
                                     )
                                 } else {
                                     // Используем AndroidView для TextView с возможностью выделения текста
@@ -377,15 +458,15 @@ fun TranslatorScreen(
                                                     setPadding(16, 16, 16, 16)
                                                 }
                                                 
-                                                // Создаем TextView для отображения текста
+                                                // Создаем TextView для отображения текста с увеличенным размером шрифта
                                                 val textView = android.widget.TextView(context).apply {
                                                     layoutParams = android.widget.LinearLayout.LayoutParams(
                                                         android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                                                         android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
                                                     )
                                                     
-                                                    textSize = 16f
-                                                    setLineSpacing(8f, 1f)
+                                                    textSize = 18f // Увеличенный размер шрифта
+                                                    setLineSpacing(10f, 1f) // Увеличенный интервал между строками
                                                     setTextIsSelectable(true)
                                                     
                                                     // Меньше кастомных настроек, больше стандартного поведения
@@ -430,67 +511,104 @@ fun TranslatorScreen(
                             // Кнопки управления переводом вертикально справа в отдельном контейнере
                             Column(
                                 modifier = Modifier
-                                    .padding(end = 4.dp, top = 4.dp)
+                                    .padding(end = 8.dp, top = 8.dp)
                                     .width(48.dp),  // Фиксированная ширина для кнопок
                                 verticalArrangement = Arrangement.Top,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 val speakButtonScale = remember { Animatable(1f) }
                                 
-                                IconButton(onClick = {
-                                    // Анимация кнопки озвучивания
-                                    coroutineScope.launch {
-                                        animateButton(speakButtonScale)
-                                    }
-                                    
-                                    // Вибрация
-                                    vibrateDevice(context)
-                                    
-                                    viewModel.speakTranslation()
-                                },
-                                modifier = Modifier.scale(speakButtonScale.value)) {
+                                IconButton(
+                                    onClick = {
+                                        // Анимация кнопки озвучивания
+                                        coroutineScope.launch {
+                                            animateButton(speakButtonScale)
+                                        }
+                                        
+                                        // Вибрация
+                                        vibrateDevice(context)
+                                        
+                                        viewModel.speakTranslation()
+                                    },
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .scale(speakButtonScale.value),
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = if (state.isSpeaking) 
+                                            MaterialTheme.colorScheme.primaryContainer 
+                                        else 
+                                            MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = if (state.isSpeaking) 
+                                            MaterialTheme.colorScheme.onPrimaryContainer 
+                                        else 
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                ) {
                                     if (state.isSpeaking) {
                                         // Показываем индикатор прогресса, когда идет озвучивание
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(24.dp),
-                                            strokeWidth = 2.dp
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
                                     } else {
                                         Icon(
                                             Icons.AutoMirrored.Filled.VolumeUp,
-                                            contentDescription = stringResource(R.string.speak)
+                                            contentDescription = stringResource(R.string.speak),
+                                            modifier = Modifier.size(24.dp)
                                         )
                                     }
                                 }
                                 
-                                IconButton(onClick = viewModel::copyTranslation) {
+                                IconButton(
+                                    onClick = viewModel::copyTranslation,
+                                    modifier = Modifier.size(48.dp),
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                ) {
                                     Icon(
-                                        Icons.Default.ContentCopy,
-                                        contentDescription = stringResource(R.string.copy)
+                                        Icons.Filled.ContentCopy,
+                                        contentDescription = stringResource(R.string.copy),
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                                 
-                                IconButton(onClick = viewModel::shareTranslation) {
+                                IconButton(
+                                    onClick = viewModel::shareTranslation,
+                                    modifier = Modifier.size(48.dp),
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                ) {
                                     Icon(
-                                        Icons.Default.Share,
-                                        contentDescription = stringResource(R.string.share)
+                                        Icons.Filled.Share,
+                                        contentDescription = stringResource(R.string.share),
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                                 
                                 // Кнопка истории перемещена под кнопку "поделиться"
-                                IconButton(onClick = onNavigateToHistory) {
+                                IconButton(
+                                    onClick = onNavigateToHistory,
+                                    modifier = Modifier.size(48.dp),
+                                    colors = IconButtonDefaults.iconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                ) {
                                     Icon(
-                                        Icons.Default.History, 
-                                        contentDescription = stringResource(R.string.history)
+                                        Icons.Filled.History, 
+                                        contentDescription = stringResource(R.string.history),
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             }
                         }
                     }
                 }
-                
-                // Добавляем небольшой отступ снизу для лучшего UX
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }

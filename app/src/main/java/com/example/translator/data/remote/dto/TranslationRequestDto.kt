@@ -24,21 +24,31 @@ data class TranslationRequestDto(
             
             val prompt = if (isWord) {
                 """
-                Translate the word '$text' from $sourceLang to $targetLang.
-                For words, provide multiple translations with brief context or explanations in parentheses.
-                Important: 
-                - Always provide the context/explanations in parentheses in ${getLanguageName(systemLanguage)} language, NOT in $targetLang.
-                - Keep explanations in parentheses brief (2-3 words max).
-                - Format each translation on a new line like this:
-                translation1 (brief context in ${getLanguageName(systemLanguage)})
-                translation2 (brief context in ${getLanguageName(systemLanguage)})
-                Only return the translations without any additional text or explanations outside of the specified format.
+                Строго соблюдай правила перевода:
+     1. Выводи до трёх вариантов перевода (если возможно), перечисленных в порядке убывания частоты встречаемости.
+     2. Определение в скобках ДОЛЖНО быть на исходном языке ($sourceLang), перевод - на целевом языке ($targetLang)
+     3. Никогда не смешивай языки! Пример для перевода с $sourceLang на $targetLang:
+     4. Вывод оформляй в следующем формате (пример для перевода слова «chat» с французского на русский):
+         Кот (animal domestique)
+         Чат (communication en ligne)
+         Беседа (conversation informelle)
+     5. Давай КРАТКИЕ определения в скобках - не более 3-5 слов.
+     6. Перед отправкой ответа проверь:
+        - Язык перевода: $targetLang
+        - Язык определений: $sourceLang
+        - Никаких других языков кроме указанных!
+
+     Переведи слово "$text" с $sourceLang на $targetLang:
                 """.trimIndent()
             } else {
                 """
-                Translate the following text from $sourceLang to $targetLang.
-                Return only the translation without any additional text or explanations.
-                Text to translate: $text
+                Переведи на $targetLang следующий текст, сохраняя структуру абзацев и форматирование:
+                - Переводи максимально точно, сохраняя стиль и смысл
+                - Выводи ТОЛЬКО перевод, без комментариев, вводных фраз и лишних символов
+                - Не добавляй ничего от себя, только перевод
+                - Не используй символы ".$" в переводе
+
+                Текст: $text
                 """.trimIndent()
             }
 
@@ -46,7 +56,7 @@ data class TranslationRequestDto(
                 messages = listOf(
                     Message(
                         role = "system",
-                        content = "You are a professional translator. Always provide accurate translations in the requested format. For words, always provide brief context/explanations in parentheses in the specified language, not in the target language."
+                        content = "You are a professional translator. Always provide accurate translations in the requested format. Keep translations concise and direct."
                     ),
                     Message(
                         role = "user",

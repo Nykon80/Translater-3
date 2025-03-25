@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import com.example.translator.ui.theme.TranslatorTheme
 import dagger.hilt.android.AndroidEntryPoint
 import java.util.Locale
+import android.view.WindowManager
 
 // Синглтон для передачи событий распознавания речи
 object SpeechRecognitionEvent {
@@ -102,6 +103,9 @@ class MainActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Устанавливаем режим отображения клавиатуры программно
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         
         // Инициализация слушателя языка клавиатуры
         keyboardLanguageListener = KeyboardLanguageListener(this) { languageCode ->
