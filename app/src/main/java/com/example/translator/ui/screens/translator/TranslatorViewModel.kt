@@ -183,10 +183,13 @@ class TranslatorViewModel @Inject constructor(
                 // Нормализуем код языка
                 val normalizedLanguageCode = languageCode.lowercase().take(2)
                 
+                // Специальная обработка для украинского языка (uk -> ua)
+                val searchCode = if (normalizedLanguageCode == "uk") "ua" else normalizedLanguageCode
+                
                 // Проверяем, что язык изменился и есть в списке доступных
-                if (currentState.sourceLanguage?.code != normalizedLanguageCode) {
+                if (currentState.sourceLanguage?.code != searchCode) {
                     // Ищем язык с нужным кодом
-                    currentState.sourceLanguages.find { it.code == normalizedLanguageCode }?.let { newSourceLanguage ->
+                    currentState.sourceLanguages.find { it.code == searchCode }?.let { newSourceLanguage ->
                         android.util.Log.d("TranslatorViewModel", 
                             "Updating source language from ${currentState.sourceLanguage?.code} to ${newSourceLanguage.code}")
                         
@@ -284,9 +287,10 @@ class TranslatorViewModel @Inject constructor(
             }
         }
         
-        if (state.value.inputText.isNotEmpty()) {
-            translate()
-        }
+        // Отключаем автоматический перевод при смене языков
+        // if (state.value.inputText.isNotEmpty()) {
+        //     translate()
+        // }
     }
 
     fun clearInput() {
@@ -518,8 +522,8 @@ class TranslatorViewModel @Inject constructor(
                 // Устанавливаем данные в буфер обмена
                 clipboard.setPrimaryClip(clip)
                 
-                // Показываем сообщение об успешном копировании
-                _state.update { it.copy(translatedText = it.translatedText + "\n\n[Текст скопирован]") }
+                // Убираем сообщение об успешном копировании
+                // Просто копируем текст без уведомления
             } catch (e: Exception) {
                 // Обрабатываем возможные ошибки
                 _state.update { it.copy(error = "Ошибка при копировании: ${e.message}") }
