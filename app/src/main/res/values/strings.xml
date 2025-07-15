@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Translator</string>
+    <string name="history">History</string>
+    <string name="words_history">Words History</string>
+    <string name="sentences_history">Sentences History</string>
+    <string name="favorites">Favorites</string>
+</resources>

@@ -1,0 +1,2 @@
+rootProject.name = 'translater3'
+include ':app'
